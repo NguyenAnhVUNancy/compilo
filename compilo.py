@@ -15,7 +15,7 @@ NUMBER : /[0-9]+/
 OP : /[+\*\/>-]/
 IDENTIFIANT : /[a-zA-Z][a-zA-Z0-9]*/
 LINE : /.*/
-MULTILINE : /[^\*]*((\*)[^\/][^\*]*)*/s
+MULTILINE : /[^\*]*((\*)+[^\/\*][^\*]*)*/s
 %import common.WS
 %ignore WS
 """, start = "prog")
