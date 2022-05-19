@@ -6,7 +6,7 @@ main(X,Y) {
     else{
         printf(Y);
     }*/
-    for(Z=X+2; Z>Y-2; Z--){
+    for(Z=(X+2); Z>(Y-2); Z--){
         printf((Z>X)||(Z<Y));
     }
     /*

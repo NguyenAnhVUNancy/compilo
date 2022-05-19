@@ -40,7 +40,7 @@ def pp_expr(expr):
         op = expr.children[1].value
         return f"{e1} {op} {e2}"
     elif expr.data == "parenexpr":
-        f"({ pp_expr( expr.children[0] ) }) "
+        return f"({ pp_expr( expr.children[0] ) }) "
     else :
         raise Exception("Not implemented")
 
