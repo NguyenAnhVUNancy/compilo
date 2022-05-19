@@ -70,20 +70,6 @@ def pp_cmd(cmd):
     if cmd.data == "short" :
         e = pp_short(cmd.children[0])
         return f"{e};"
-    elif cmd.data == "add" :
-        lhs = cmd.children[0].value
-        rhs = pp_expr(cmd.children[1])
-        return f"{lhs} += {rhs};"
-    elif cmd.data == "sub" :
-        lhs = cmd.children[0].value
-        rhs = pp_expr(cmd.children[1])
-        return f"{lhs} += {rhs};"
-    elif cmd.data == "incr" :
-        lhs = cmd.children[0].value
-        return f"{lhs}++;"
-    elif cmd.data == "decr" :
-        lhs = cmd.children[0].value
-        return f"{lhs}--;"
     elif cmd.data == "printf" :
         return f"printf({pp_expr(cmd.children[0])});"
     elif cmd.data in {"while", "if"} :
