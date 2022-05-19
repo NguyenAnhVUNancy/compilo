@@ -30,5 +30,5 @@
   - printf
 - comments:
   - single line: //...
-  - multiple lines: /*...*/
+  - multiple lines: /\*...\*/
 - pretty printer
