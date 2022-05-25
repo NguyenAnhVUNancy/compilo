@@ -1,7 +1,7 @@
 import lark
 
 grammaire = lark.Lark("""
-variables : IDENTIFIANT (","  IDENTIFIANT)*
+variables : var (","  var)*
 expr : IDENTIFIANT -> variable | NUMBER -> nombre
 | expr OP expr -> binexpr | "(" expr ")" -> parenexpr
 | "!" expr -> not
@@ -10,16 +10,20 @@ cmd : shortcmd ";" -> short |"while" "(" expr ")" "{" bloc "}" -> while
     | "if" "(" expr ")" "{" bloc "}" "else" "{" bloc "}" -> ifelse
     | "for" "(" shortcmd ";" expr ";" shortcmd ")" "{" bloc "}" -> for
     | COMMENT -> comment
-shortcmd : IDENTIFIANT "=" expr -> assignment | IDENTIFIANT "+=" expr -> add | IDENTIFIANT "-=" expr -> sub
+shortcmd : var "=" expr -> declaration | IDENTIFIANT "=" expr -> assignment | IDENTIFIANT "+=" expr -> add | IDENTIFIANT "-=" expr -> sub
     | IDENTIFIANT "++" -> incr | IDENTIFIANT "--" -> decr
 bloc : (cmd)*
-prog : "main" "(" variables ")" "{" bloc "return" "(" expr ")" ";" "}"
+func : TYPE NOM "(" variables ")" "{" bloc "return" "(" expr ")" ";" "}"
+prog : TYPE "main" "(" variables ")" "{" bloc "return" "(" expr ")" ";" "}"
+var : TYPE IDENTIFIANT
 COMMENT : "//" LINE | "/*" MULTILINE "*/"
 NUMBER : /[0-9]+/
 OP : /[+\*\/><-]/ | /[!<>=](=)/ | "**" | "&&" | "||"
 IDENTIFIANT : /[a-zA-Z][a-zA-Z0-9]*/
+TYPE : "int" | "string"
 LINE : /.*/
 MULTILINE : /[^\*]*((\*)+[^\/\*][^\*]*)*/s
+NOM : /[^]*/
 %import common.WS
 %ignore WS
 """, start = "prog")
@@ -29,7 +33,7 @@ intop2asm = {'+': "add", '-': "sub", '*': "imul", '/' : "idiv"}
 cmpop2asm = {"==" : "je","!=" : "jne", '>' : "jg", '<' : "jl", ">=" : "jge", "<=" : "jle"}
 
 def pp_variables(vars):
-    return ", ".join([t.value for t in vars.children])
+    return ", ".join([f"{t.children[0].value} {t.children[1].value}" for t in vars.children])
 
 def pp_expr(expr):
     if expr.data in {"variable", "nombre"}:
@@ -47,6 +51,10 @@ def pp_expr(expr):
 def pp_short(cmd):
     if cmd.data == "assignment" :
         lhs = cmd.children[0].value
+        rhs = pp_expr(cmd.children[1])
+        return f"{lhs} = {rhs}"
+    elif cmd.data == "declaration" :
+        lhs = f"{cmd.children[0].children[0].value} {cmd.children[0].children[1].value}"
         rhs = pp_expr(cmd.children[1])
         return f"{lhs} = {rhs}"
     elif cmd.data == "add" :
@@ -102,16 +110,17 @@ def pp_bloc(bloc):
     return "\n".join(a)
 
 def pp_prog(prog):
-    vars = pp_variables(prog.children[0])
-    bloc = pp_bloc(prog.children[1])
-    ret = pp_expr(prog.children[2])
-    return f"main ({vars}){{\n{bloc}\n    return({ret}); \n}} "
+    type = prog.children[0]
+    vars = pp_variables(prog.children[1])
+    bloc = pp_bloc(prog.children[2])
+    ret = pp_expr(prog.children[3])
+    return f"{type} main ({vars}){{\n{bloc}\n    return({ret}); \n}} "
 
 
 def var_list(ast):
     if isinstance(ast, lark.Token):
         if ast.type == "IDENTIFIANT":
-            return {ast.value}
+            return {ast}
         else:
             return set()
     s = set()
@@ -120,9 +129,9 @@ def var_list(ast):
     return s
 
 def compile_expr(expr):
-    if expr.data in "variable":
+    if expr.data == "variable":
         return f"mov rax, [{expr.children[0].value}]"
-    elif expr.data in "nombre":
+    elif expr.data == "nombre":
         return f"mov rax, {expr.children[0].value}"
     elif expr.data == "binexpr":
         e1 = compile_expr(expr.children[0])
@@ -233,5 +242,6 @@ def compile(prg):
 
 code = open("test.sc").read()
 prg = grammaire.parse(code)
-#print(pp_prog(prg))
-print(compile(prg))
+print(pp_prog(prg))
+#print(var_list(prg))
+#print(compile(prg))
