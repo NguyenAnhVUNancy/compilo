@@ -1,4 +1,10 @@
-int main(int X,int Y) {
+int plus(int a, int b) {
+    return   (a + b);
+}
+
+void main(int X) {
+    int Y;
+    Y += 10;
     /*
     if(X){
         printf(X/Y); //ok
