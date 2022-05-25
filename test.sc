@@ -1,4 +1,4 @@
-main(X,Y) {
+int main(int X,int Y) {
     /*
     if(X){
         printf(X/Y); //ok
@@ -6,7 +6,7 @@ main(X,Y) {
     else{
         printf(Y);
     }*/
-    for(Z=(X+2); Z>(Y-2); Z--){
+    for(int Z=(X+2); Z>(Y-2); Z--){
         printf((Z>X)||(Z<Y));
     }
     /*
