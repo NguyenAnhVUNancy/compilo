@@ -1,7 +1,8 @@
 extern printf, atoi
 global main
 section .data
-fmt: db "%d", 10, 0
+fmt_int: db "%d", 10, 0
+fmt_str: db "%s", 10, 0
 VAR_DECL
 
 section .text
@@ -15,7 +16,7 @@ VAR_INIT
 BODY
 RETURN
 
-  mov rdi, fmt
+  mov rdi, fmt_int
   mov rsi, rax
   xor rax, rax
   call printf
