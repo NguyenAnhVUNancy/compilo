@@ -1,4 +1,5 @@
 import lark
+import sys
 
 grammaire = lark.Lark("""
 variables : "(" var (","  var)* ")" | "(" ")"
@@ -223,7 +224,7 @@ def compile_short(cmd, typelist):
     elif cmd.data == "shortdeclaration":
         lhs = cmd.children[0].children[1].value
         if typelist[lhs] == "int":
-            return f"  mov [{lhs}], DWORD PTR 0"
+            return f"  mov [{lhs}], dword ptr 0"
         else:
             raise Exception("Not implemented")
     elif cmd.data == "add":
@@ -334,13 +335,18 @@ def compile(prg):
         code = code.replace("VAR_INIT", compile_vars(main.children[2]))
         return code
 
-code = open("test.sc").read()
+mode = sys.argv[1]
+filename = sys.argv[2]
+code = open(filename).read()
 prg = grammaire.parse(code)
-#print(pp_prog(prg))
-#print(var_list(prg))
-print(compile(prg))
 
+if mode == "pp":
+    print(pp_prog(prg))
+elif mode == "cp":
+    print(compile(prg))
+else:
+    raise Exception("Not implemented")
 
-#python3.9 compilo.py > hum.asm
+#python3.9 compilo.py cp test.nanoc > hum.asm
 #nasm -felf64 hum.asm
 #gcc -no-pie -fno-pie hum.o
