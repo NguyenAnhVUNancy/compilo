@@ -412,7 +412,7 @@ def compile(prg):
         return code
 
 
-code = open("testbis.sc").read()
+code = open("test.sc").read()
 prg = grammaire.parse(code)
 #print(pp_prog(prg))
 #print(var_list(prg))
