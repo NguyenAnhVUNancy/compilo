@@ -199,6 +199,8 @@ def type_expr(expr, typelist):
         return type_expr(expr.children[0], typelist)
     elif expr.data == "string":
         return "string"
+    elif expr.data == "len":
+        return "int"
     else:
         raise Exception("Not implemented")
 
@@ -256,10 +258,19 @@ def compile_expr(expr, typelist):
         return f"  mov rax, const_{expr.children[0][1:(len(expr.children[0])-1)]}"
     elif expr.data == "len":
         if type_expr(expr.children[0], typelist) == "string":
+<<<<<<< HEAD
             print(expr.children[0])
             return f" mov rax,const_{expr.children[0][1:(len(expr.children[0])-1)]}_len "
         else:
             raise Exception("Not implemented")
+=======
+            if (expr.children[0].data == "variable"):
+                return f"  mov rax, [{expr.children[0].children[0].value}_len]"
+            elif (expr.children[0].data == "string"):
+                return f"  mov rax, const_{expr.children[0].children[0].value[1:(len(expr.children[0].children[0].value)-1)]}_len"
+            else:
+                raise Exception("Not implemented")
+>>>>>>> e39ed14ba0a6a4a5a1544628c09acea91111bdfe
     else:
         raise Exception("Not implemented")
 
@@ -267,14 +278,20 @@ def compile_expr(expr, typelist):
 def compile_short(cmd, typelist):
     if cmd.data == "assignment":
         lhs = cmd.children[0].value
-        if typelist[lhs] == type_expr(cmd.children[1], typelist):
+        if typelist[lhs] == type_expr(cmd.children[1], typelist) and typelist[lhs] == "string":
+            rhs = compile_expr(cmd.children[1], typelist)
+            return f"{rhs}\n  mov [{lhs}], rax\n{rhs}_len\n  mov [{lhs}_len], rax"
+        elif typelist[lhs] == type_expr(cmd.children[1], typelist) and typelist[lhs] == "int":
             rhs = compile_expr(cmd.children[1], typelist)
             return f"{rhs}\n  mov [{lhs}], rax"
         else:
             raise Exception("Type error")
     elif cmd.data == "declaration":
         lhs = cmd.children[0].children[1].value
-        if typelist[lhs] == type_expr(cmd.children[1], typelist):
+        if typelist[lhs] == type_expr(cmd.children[1], typelist) and typelist[lhs] == "string":
+            rhs = compile_expr(cmd.children[1], typelist)
+            return f"{rhs}\n  mov [{lhs}], rax\n{rhs}_len\n  mov [{lhs}_len], rax"
+        elif typelist[lhs] == type_expr(cmd.children[1], typelist) and typelist[lhs] == "int":
             rhs = compile_expr(cmd.children[1], typelist)
             return f"{rhs}\n  mov [{lhs}], rax"
         else:
@@ -396,7 +413,7 @@ def var_decl(varlist, stringlist):
         if x.children[0] == "string":
             s += f"{x.children[1]}: dq 0\n{x.children[1]}_len: dq 0\n"
     for x in stringlist:
-        s += f"const_{x.children[0][1:(len(x.children[0])-1)]}: db {x.children[0]},0 \nconst_{x.children[0][1:(len(x.children[0])-1)]}_len: dq {len(x.children[0])-2} \n"
+        s += f"const_{x.children[0][1:(len(x.children[0])-1)]}: db {x.children[0]},0 \nconst_{x.children[0][1:(len(x.children[0])-1)]}_len: equ $ - const_{x.children[0][1:(len(x.children[0])-1)]} \n"
     return s
 
 def find_main(prg):
@@ -425,10 +442,19 @@ def compile(prg):
         return code
 
 
+<<<<<<< HEAD
 if len(sys.argv) == 1:
     args = ["", "pp", "test.nanoc"]
 else:
     args = sys.argv
+=======
+code = open("test.sc").read()
+prg = grammaire.parse(code)
+#print(pp_prog(prg))
+#print(var_list(prg))
+print(compile(prg))
+#compile(prg)
+>>>>>>> e39ed14ba0a6a4a5a1544628c09acea91111bdfe
 
 if args[1] == "pp":
     print(pp_prog(grammaire.parse(open(args[2]).read())))
