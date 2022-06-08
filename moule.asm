@@ -1,4 +1,4 @@
-extern printf, atoi
+extern printf, atoi, strcat
 global main
 section .data
 fmt_int: db "%d", 10, 0
