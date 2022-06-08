@@ -1,8 +1,9 @@
-void main() {
-    string X = "1234";
+int main() {
+    string X = "abc";
     printf(X);
     printf(len(X));
     int Y = len(X) + 2;
     printf(Y);
+    printf(X + "abc");
     return(0);
 }
