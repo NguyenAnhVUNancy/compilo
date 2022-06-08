@@ -252,6 +252,8 @@ def compile_expr(expr, typelist):   # This function will compile an expression
                 index = cpt.__next__()
                 if op in {"=="}:
                     return f"{e2}\n  push rax\n{e1}\n  pop rbx\n  cmp rax, rbx\n  {cmpop2asm[op]} mid{index}\n  mov rax, 0\n  jmp end{index}\nmid{index}:\n  mov rax, 1\nend{index}:"
+                elif op in {"+"}:
+                    return f"{e1}\n  mov rdx, rax\n{e2}\n  mov rsi, rdx\n  mov rdi, rax\n  call strcat"
                 else:
                     raise Exception("Not implemented")
             else:
@@ -438,7 +440,8 @@ def compile_func(func, func_type):
     ret = func.children[0].value
     returntype = type_expr(func.children[4], typelist)
     if returntype != ret:
-        raise Exception(f"Wrong return type, expected {func.children[0].value}, {returntype} given")
+        raise Exception(
+            f"Wrong return type, expected {func.children[0].value}, {returntype} given")
     with open("moule_func.asm") as f:
         code = f.read()
         code = code.replace("NAME", func.children[1])
