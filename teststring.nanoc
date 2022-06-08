@@ -1,0 +1,8 @@
+void main() {
+    string X = "1234";
+    printf(X);
+    printf(len(X));
+    int Y = len(X) + 2;
+    printf(Y);
+    return(0);
+}
