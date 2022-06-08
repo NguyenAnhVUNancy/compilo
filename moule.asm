@@ -6,6 +6,8 @@ fmt_str: db "%s", 10, 0
 VAR_DECL
 
 section .text
+FUNC
+
 main:
   push rbp
   mov rbp, rsp
@@ -23,3 +25,5 @@ RETURN
   add rsp, 16
   pop rbp
   ret
+
+

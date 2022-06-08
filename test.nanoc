@@ -2,34 +2,43 @@ int plus(int a, int b) {
     return   (a + b);
 }
 
+int fois(int a, int b){
+    return (a * b);
+}
+
 /*
-void main2(string X){
+void truc(string X){
     printf(len(X));
     return(0);
 }*/
 
-void main2(int X) {
+void main(int X) {
     printf(X);
     int Y;
-    Y += 10;
+    Y = plus(Y, 10);
     /*
     if(X){
         printf(X/Y); //ok
     }
     else{
         printf(Y);
-    }*/
+    }
     for(int Z=(X+2); Z>(Y-2); Z--){
         printf((Z>X)||(Z<Y));
     }
-    /*
+    
     printf(Y);
     */
+    printf(Y);
+    for (int Z = Y; Z < X; Z++){
+        printf(Z);
+    }
     return(X);
 }
-
+/*
 int main(){
     string X = "qsdqsdqsd";
     printf(X);
     return(0);
 }
+*/

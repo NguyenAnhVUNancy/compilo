@@ -4,9 +4,11 @@ from tomlkit import string
 
 grammaire = lark.Lark("""
 variables : "(" var (","  var)* ")" | "(" ")"
+variablecall : "(" expr ("," expr)* ")" | "(" ")"
 expr : IDENTIFIANT -> variable | NUMBER -> nombre | STRING -> string
 | expr OP expr -> binexpr | "(" expr ")" -> parenexpr
 | "!" expr -> not | "len(" expr ")" -> len
+| NOM variablecall -> funcall
 cmd : shortcmd ";" -> short |"while" "(" expr ")" "{" bloc "}" -> while
     | "if" "(" expr ")" "{" bloc "}" -> if | "printf" "(" expr ")" ";"-> printf
     | "if" "(" expr ")" "{" bloc "}" "else" "{" bloc "}" -> ifelse
@@ -37,7 +39,7 @@ cpt = iter(range(10000))
 intop2asm = {'+': "add", '-': "sub", '*': "imul", '/': "idiv"}
 cmpop2asm = {"==": "je", "!=": "jne", '>': "jg",
              '<': "jl", ">=": "jge", "<=": "jle"}
-
+argsreg = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
 
 def pp_variables(vars):
     return ", ".join([f"{t.children[0].value} {t.children[1].value}" for t in vars.children])
@@ -182,7 +184,13 @@ def type_expr(expr, typelist):
             return typelist[e]
         else:
             raise Exception(f"{e} not declared")
-    if expr.data == "len":
+    elif expr.data == "funcall":
+        e = expr.children[0].value
+        if e in typelist.keys():
+            return typelist[e][0]
+        else:
+            raise Exception(f"{e} not declared")
+    elif expr.data == "len":
         return "int"
     elif expr.data == "nombre":
         return "int"
@@ -264,9 +272,41 @@ def compile_expr(expr, typelist):
                 return f"  mov rax, const_{expr.children[0].children[0].value[1:(len(expr.children[0].children[0].value)-1)]}_len"
             else:
                 raise Exception("Not implemented")
+    elif expr.data == "funcall":
+        type = []
+        args = expr.children[1].children
+        for e in args:
+            type += [type_expr(e, typelist)]
+        if check_fun_type(typelist, type, expr):
+            s = ""
+            for i in range(len(args)):
+                s += compile_expr(args[i], typelist)
+                s += "\n"
+                if i < 6:
+                    s += f"  mov {argsreg[i]}, rax\n"
+                else:
+                    s+= "  push rax\n"
+            s += f"  call {expr.children[0]}"
+            return s
     else:
         raise Exception("Not implemented")
 
+def check_fun_type(typelist, type, func):
+    e = func.children[0].value
+    if e in typelist.keys():
+        func_args_type = typelist[e][1]
+        if len(func_args_type) < len(type):
+            raise Exception(f"Too many arguments, expected {len(func_args_type)}, {len(type)} given")
+        elif len(func_args_type) > len(type):
+            raise Exception(f"Too few arguments, expected {len(func_args_type)}, {len(type)} given")
+        else:
+            for i in range(len(type)):
+                if type[i] !=func_args_type[i]:
+                    raise Exception(f"Wrong argument type, expected {func_args_type}, {type} given")
+            return True
+    else:
+        raise Exception(f"{e} not declared")
+        
 
 def compile_short(cmd, typelist):
     if cmd.data == "assignment":
@@ -384,6 +424,30 @@ def compile_bloc(bloc, typelist):
     return "\n".join(a)
 
 
+def compile_func(func,func_type):
+    varlist = var_list(func)
+    typelist = type_list(varlist)
+    for f in func_type.keys():
+        typelist[f] = func_type[f]
+    args = func.children[2].children
+    with open("moule_func.asm") as f:
+        code = f.read()
+        code = code.replace("NAME", func.children[1])
+        var_init = ""
+        for i in range(len(args)):
+            if i < 6:
+                var_init += f"  mov [{args[i].children[1].value}], {argsreg[i]}\n"
+            else:
+                var_init += f"  pop rax\n  mov [{args[i].children[1]}],x rax\n"
+        code = code.replace("VAR_INIT", var_init)
+        code = code.replace("RETURN", compile_expr(func.children[4], typelist))
+        code = code.replace("BODY", compile_bloc(func.children[3], typelist))
+        for i in range(len(args)):
+            code = code.replace(f"[{args[i].children[1].value}]", f"[rbp-{8*(i+1)}]")
+        code += "\n"
+        return code
+
+
 def compile_vars(ast):
     s = ""
     for i in range(len(ast.children)):
@@ -397,6 +461,11 @@ def type_list(varlist):
         dico[e.children[1].value] = e.children[0].value
     return dico
 
+def func_type_list(func):
+    dico = {}
+    for f in func:
+        dico[f.children[1].value] = [f.children[0].value, [a.children[0].value for a in f.children[2].children]]
+    return dico
 
 def var_decl(varlist, stringlist):
     s = ""
@@ -428,6 +497,13 @@ def compile(prg):
         varlist = var_list(main)
         stringlist = string_list(main)
         typelist = type_list(varlist)
+        func_type = func_type_list(func)
+        for f in func_type.keys():
+            typelist[f] = func_type[f]
+        compiled_func = ""
+        for f in func:
+            compiled_func += compile_func(f, func_type)
+        code = code.replace("FUNC", compiled_func)
         code = code.replace("VAR_DECL", var_decl(varlist, stringlist))
         code = code.replace("RETURN", compile_expr(main.children[4], typelist))
         code = code.replace("BODY", compile_bloc(main.children[3], typelist))
@@ -436,7 +512,7 @@ def compile(prg):
 
 
 if len(sys.argv) == 1:
-    args = ["", "pp", "test.nanoc"]
+    args = ["", "cp", "test.nanoc"]
 else:
     args = sys.argv
 
