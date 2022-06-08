@@ -47,6 +47,15 @@ def pp_variables(vars):  # This is used to pretty print a variable
 def pp_expr(expr):  # This is used to pretty print an expression
     if expr.data in {"variable", "nombre", "string"}:
         return expr.children[0].value
+    elif expr.data == "funcall":
+        s = f"{expr.children[0].value}("
+        args = expr.children[1].children
+        if len(args)>0:
+            s += pp_expr(args[0])
+            for i in range(1, len(args)):
+                s += ", " + pp_expr(args[i])
+        s += ")"
+        return s
     elif expr.data == "binexpr":
         e1 = pp_expr(expr.children[0])
         e2 = pp_expr(expr.children[2])
@@ -127,19 +136,12 @@ def pp_bloc(bloc):  # This is used to pretty print a bloc
 
 
 def pp_func(func):  # This is used to pretty print a function
-    if len(func.children) == 5:
-        type = func.children[0]
-        name = func.children[1]
-        vars = pp_variables(func.children[2])
-        bloc = pp_bloc(func.children[3])
-        ret = pp_expr(func.children[4])
-        return f"{type} {name} ({vars}){{\n{bloc}\n    return({ret}); \n}} "
-    elif len(func.children) == 4:
-        type = func.children[0]
-        name = func.children[1]
-        vars = pp_variables(func.children[2])
-        bloc = pp_bloc(func.children[3])
-        return f"{type} {name} ({vars}){{\n{bloc}\n}} "
+    type = func.children[0]
+    name = func.children[1]
+    vars = pp_variables(func.children[2])
+    bloc = pp_bloc(func.children[3])
+    ret = pp_expr(func.children[4])
+    return f"{type} {name} ({vars}){{\n{bloc}\n    return({ret}); \n}} "
 
 
 def pp_prog(prog):  # This is used to pretty print a program
