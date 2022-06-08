@@ -1,6 +1,5 @@
 import lark
 import sys
-from tomlkit import string
 
 grammaire = lark.Lark("""
 variables : "(" var (","  var)* ")" | "(" ")"
@@ -41,11 +40,11 @@ cmpop2asm = {"==": "je", "!=": "jne", '>': "jg",
              '<': "jl", ">=": "jge", "<=": "jle"}
 argsreg = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
 
-def pp_variables(vars):
+def pp_variables(vars): # This is used to pretty print a variable
     return ", ".join([f"{t.children[0].value} {t.children[1].value}" for t in vars.children])
 
 
-def pp_expr(expr):
+def pp_expr(expr):  # This is used to pretty print an expression
     if expr.data in {"variable", "nombre", "string"}:
         return expr.children[0].value
     elif expr.data == "binexpr":
@@ -61,7 +60,7 @@ def pp_expr(expr):
         raise Exception("Not implemented")
 
 
-def pp_short(cmd):
+def pp_short(cmd):  # This is used to pretty print a short command (assignement, declaration, ...), which itself is a command
     if cmd.data == "assignment":
         lhs = cmd.children[0].value
         rhs = pp_expr(cmd.children[1])
@@ -91,7 +90,7 @@ def pp_short(cmd):
         raise Exception("Not implemented")
 
 
-def pp_cmd(cmd):
+def pp_cmd(cmd):    # This is used to pretty print a command
     if cmd.data == "short":
         e = pp_short(cmd.children[0])
         return f"{e};"
@@ -118,7 +117,7 @@ def pp_cmd(cmd):
         raise Exception("Not implemented")
 
 
-def pp_bloc(bloc):
+def pp_bloc(bloc):  # This is used to pretty print a bloc
     b = "\n".join([pp_cmd(t) for t in bloc.children]).split("\n")
     a = []
     for i in range(len(b)):
@@ -127,7 +126,7 @@ def pp_bloc(bloc):
     return "\n".join(a)
 
 
-def pp_func(func):
+def pp_func(func):  # This is used to pretty print a function
     if len(func.children) == 5:
         type = func.children[0]
         name = func.children[1]
@@ -142,7 +141,7 @@ def pp_func(func):
         bloc = pp_bloc(func.children[3])
         return f"{type} {name} ({vars}){{\n{bloc}\n}} "
 
-def pp_prog(prog):
+def pp_prog(prog):  # This is used to pretty print a program
     s = ""
     for func in prog.children:
         if not isinstance(func, lark.Token):
@@ -153,7 +152,7 @@ def pp_prog(prog):
     return s
 
 
-def var_list(ast):
+def var_list(ast):  # This function will gather all the variables in a program
     if isinstance(ast, lark.Token):
         return set()
     elif ast.data == "var":
@@ -165,7 +164,7 @@ def var_list(ast):
     return s
 
 
-def string_list(ast):
+def string_list(ast):   # This function will gather all the strings in a program
     if isinstance(ast, lark.Token):
         return set()
     elif ast.data == "string":
@@ -177,7 +176,7 @@ def string_list(ast):
     return s
 
 
-def type_expr(expr, typelist):
+def type_expr(expr, typelist):  # This function will check if an expression is of a given type
     if expr.data == "variable":
         e = expr.children[0].value
         if e in typelist.keys():
@@ -213,7 +212,7 @@ def type_expr(expr, typelist):
         raise Exception("Not implemented")
 
 
-def compile_expr(expr, typelist):
+def compile_expr(expr, typelist):   # This function will compile an expression
     if expr.data == "variable":
         return f"  mov rax, [{expr.children[0].value}]"
     elif expr.data == "nombre":
@@ -250,8 +249,6 @@ def compile_expr(expr, typelist):
                 index = cpt.__next__()
                 if op in {"=="}:
                     return f"{e2}\n  push rax\n{e1}\n  pop rbx\n  cmp rax, rbx\n  {cmpop2asm[op]} mid{index}\n  mov rax, 0\n  jmp end{index}\nmid{index}:\n  mov rax, 1\nend{index}:"
-                elif op in {'+'}:
-                    return f"{e2}\n  push rax\n{e1}\n  pop rbx\n  {intop2asm[op]} rax, rbx"
                 else:
                     raise Exception("Not implemented")
             else:
@@ -308,7 +305,7 @@ def check_fun_type(typelist, type, func):
         raise Exception(f"{e} not declared")
         
 
-def compile_short(cmd, typelist):
+def compile_short(cmd, typelist):   # This function will compile a short command (assignement, declaration, ...)
     if cmd.data == "assignment":
         lhs = cmd.children[0].value
         if typelist[lhs] == type_expr(cmd.children[1], typelist) and typelist[lhs] == "string":
@@ -371,7 +368,7 @@ def compile_short(cmd, typelist):
         raise Exception("Not implemented")
 
 
-def compile_cmd(cmd, typelist):
+def compile_cmd(cmd, typelist): # This function will compile a command (for, while, if, etc.)
     if cmd.data == "short":
         return compile_short(cmd.children[0], typelist)
     if cmd.data in {"while", "if", "ifelse"}:
@@ -415,7 +412,7 @@ def compile_cmd(cmd, typelist):
         raise Exception("Not implemented")
 
 
-def compile_bloc(bloc, typelist):
+def compile_bloc(bloc, typelist):   # This function is used to compile a bloc of commands
     b = [compile_cmd(t, typelist) for t in bloc.children]
     a = []
     for l in b:
@@ -448,14 +445,14 @@ def compile_func(func,func_type):
         return code
 
 
-def compile_vars(ast):
+def compile_vars(ast): # This function aim at converting variables into their equivalent assembly code
     s = ""
     for i in range(len(ast.children)):
         s+= f" mov rbx, [rbp-0x10]\n mov rdi, [rbx+{8*(i+1)}]\n call atoi\n mov [{ast.children[i].children[1].value}], rax\n"
     return s
 
 
-def type_list(varlist):
+def type_list(varlist): # This function's goal is to create a dictionary that will contain the type of each variable, usefull when compiling expressions
     dico = {}
     for e in varlist:
         dico[e.children[1].value] = e.children[0].value
@@ -467,7 +464,7 @@ def func_type_list(func):
         dico[f.children[1].value] = [f.children[0].value, [a.children[0].value for a in f.children[2].children]]
     return dico
 
-def var_decl(varlist, stringlist):
+def var_decl(varlist, stringlist):  # This function is used in the compilation of the main variable at the head of an assembly file
     s = ""
     for x in varlist:
         if x.children[0] == "int":
@@ -478,7 +475,7 @@ def var_decl(varlist, stringlist):
         s += f"const_{x.children[0][1:(len(x.children[0])-1)]}: db {x.children[0]},0 \nconst_{x.children[0][1:(len(x.children[0])-1)]}_len: equ $ - const_{x.children[0][1:(len(x.children[0])-1)]} \n"
     return s
 
-def find_main(prg):
+def find_main(prg): # This function will find the function named "main" in the nanoc program
     func = []
     for t in prg.children:
         if not isinstance(t, lark.Token):
@@ -490,7 +487,7 @@ def find_main(prg):
                     func += [t]
     return [main, func]
 
-def compile(prg):
+def compile(prg): # This function will compile the nanoc program into an assembly file
     with open("moule.asm") as f:
         [main, func] = find_main(prg)
         code = f.read()
@@ -523,6 +520,8 @@ elif args[1] == "cp":
 else:
     raise Exception("Not implemented")
 
+
+# How to use this script:
 #python3.9 compilo.py cp test.nanoc > hum.asm
 #nasm -felf64 hum.asm
 #gcc -no-pie -fno-pie hum.o
