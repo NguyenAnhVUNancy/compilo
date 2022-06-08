@@ -1,11 +1,12 @@
 import lark
 import sys
+from tomlkit import string
 
 grammaire = lark.Lark("""
 variables : "(" var (","  var)* ")" | "(" ")"
-expr : IDENTIFIANT -> variable | NUMBER -> nombre
+expr : IDENTIFIANT -> variable | NUMBER -> nombre | STRING -> string
 | expr OP expr -> binexpr | "(" expr ")" -> parenexpr
-| "!" expr -> not
+| "!" expr -> not | "len(" expr ")" -> len
 cmd : shortcmd ";" -> short |"while" "(" expr ")" "{" bloc "}" -> while
     | "if" "(" expr ")" "{" bloc "}" -> if | "printf" "(" expr ")" ";"-> printf
     | "if" "(" expr ")" "{" bloc "}" "else" "{" bloc "}" -> ifelse
@@ -15,11 +16,12 @@ shortcmd : var "=" expr -> declaration | var -> shortdeclaration
     | IDENTIFIANT "=" expr -> assignment | IDENTIFIANT "+=" expr -> add | IDENTIFIANT "-=" expr -> sub
     | IDENTIFIANT "++" -> incr | IDENTIFIANT "--" -> decr
 bloc : (cmd)*
-func : RETURNTYPE NOM variables "{" bloc "return" "(" expr ")" ";" "}"
-prog : (func | COMMENT)* func
+func : RETURNTYPE NOM variables "{" bloc ("return" "(" expr ")" ";")? "}"
+prog : (func | COMMENT)* func COMMENT*
 var : TYPE IDENTIFIANT
 COMMENT : "//" LINE | "/*" MULTILINE "*/"
 NUMBER : /[0-9]+/
+STRING : /"([^"]*)"/
 OP : /[+\*\/><-]/ | /[!<>=](=)/ | "**" | "&&" | "||"
 IDENTIFIANT : /[a-zA-Z][a-zA-Z0-9]*/
 TYPE : "int" | "string"
@@ -29,73 +31,80 @@ MULTILINE : /[^\*]*((\*)+[^\/\*][^\*]*)*/s
 NOM : /[a-zA-Z0-9\_]+/
 %import common.WS
 %ignore WS
-""", start = "prog")
+""", start="prog")
 
 cpt = iter(range(10000))
-intop2asm = {'+': "add", '-': "sub", '*': "imul", '/' : "idiv"}
-cmpop2asm = {"==" : "je","!=" : "jne", '>' : "jg", '<' : "jl", ">=" : "jge", "<=" : "jle"}
+intop2asm = {'+': "add", '-': "sub", '*': "imul", '/': "idiv"}
+cmpop2asm = {"==": "je", "!=": "jne", '>': "jg",
+             '<': "jl", ">=": "jge", "<=": "jle"}
+
 
 def pp_variables(vars):
     return ", ".join([f"{t.children[0].value} {t.children[1].value}" for t in vars.children])
 
+
 def pp_expr(expr):
-    if expr.data in {"variable", "nombre"}:
+    if expr.data in {"variable", "nombre", "string"}:
         return expr.children[0].value
-    elif expr.data == "binexpr" :
+    elif expr.data == "binexpr":
         e1 = pp_expr(expr.children[0])
         e2 = pp_expr(expr.children[2])
         op = expr.children[1].value
         return f"{e1} {op} {e2}"
     elif expr.data == "parenexpr":
         return f"({ pp_expr( expr.children[0] ) }) "
-    else :
+    elif expr.data == "len":
+        return f"len({pp_expr(expr.children[0])})"
+    else:
         raise Exception("Not implemented")
+
 
 def pp_short(cmd):
-    if cmd.data == "assignment" :
+    if cmd.data == "assignment":
         lhs = cmd.children[0].value
         rhs = pp_expr(cmd.children[1])
         return f"{lhs} = {rhs}"
-    elif cmd.data == "declaration" :
+    elif cmd.data == "declaration":
         lhs = f"{cmd.children[0].children[0].value} {cmd.children[0].children[1].value}"
         rhs = pp_expr(cmd.children[1])
         return f"{lhs} = {rhs}"
-    elif cmd.data == "shortdeclaration" :
+    elif cmd.data == "shortdeclaration":
         lhs = f"{cmd.children[0].children[0].value} {cmd.children[0].children[1].value}"
         return f"{lhs}"
-    elif cmd.data == "add" :
+    elif cmd.data == "add":
         lhs = cmd.children[0].value
         rhs = pp_expr(cmd.children[1])
         return f"{lhs} += {rhs}"
-    elif cmd.data == "sub" :
+    elif cmd.data == "sub":
         lhs = cmd.children[0].value
         rhs = pp_expr(cmd.children[1])
         return f"{lhs} += {rhs}"
-    elif cmd.data == "incr" :
+    elif cmd.data == "incr":
         lhs = cmd.children[0].value
         return f"{lhs}++"
-    elif cmd.data == "decr" :
+    elif cmd.data == "decr":
         lhs = cmd.children[0].value
         return f"{lhs}--"
-    else :
+    else:
         raise Exception("Not implemented")
 
+
 def pp_cmd(cmd):
-    if cmd.data == "short" :
+    if cmd.data == "short":
         e = pp_short(cmd.children[0])
         return f"{e};"
-    elif cmd.data == "printf" :
+    elif cmd.data == "printf":
         return f"printf({pp_expr(cmd.children[0])});"
-    elif cmd.data in {"while", "if"} :
+    elif cmd.data in {"while", "if"}:
         e = pp_expr(cmd.children[0])
         b = pp_bloc(cmd.children[1])
         return f"{cmd.data}({e}){{\n{b}\n}}"
-    elif cmd.data == "ifelse" :
+    elif cmd.data == "ifelse":
         e = pp_expr(cmd.children[0])
         b1 = pp_bloc(cmd.children[1])
         b2 = pp_bloc(cmd.children[2])
         return f"if({e}){{\n{b1}\n}}else{{\n{b2}\n}}"
-    elif cmd.data == "for" :
+    elif cmd.data == "for":
         c1 = pp_short(cmd.children[0])
         e = pp_expr(cmd.children[1])
         c2 = pp_short(cmd.children[2])
@@ -103,7 +112,7 @@ def pp_cmd(cmd):
         return f"for({c1};{e};{c2}){{\n{bloc}\n}}"
     elif cmd.data == "comment":
         return ""
-    else :
+    else:
         raise Exception("Not implemented")
 
 
@@ -112,16 +121,24 @@ def pp_bloc(bloc):
     a = []
     for i in range(len(b)):
         if len(b[i]) > 0:
-            a+= ["    " + b[i]]
+            a += ["    " + b[i]]
     return "\n".join(a)
 
+
 def pp_func(func):
-    type = func.children[0]
-    name = func.children[1]
-    vars = pp_variables(func.children[2])
-    bloc = pp_bloc(func.children[3])
-    ret = pp_expr(func.children[4])
-    return f"{type} {name} ({vars}){{\n{bloc}\n    return({ret}); \n}} "
+    if len(func.children) == 5:
+        type = func.children[0]
+        name = func.children[1]
+        vars = pp_variables(func.children[2])
+        bloc = pp_bloc(func.children[3])
+        ret = pp_expr(func.children[4])
+        return f"{type} {name} ({vars}){{\n{bloc}\n    return({ret}); \n}} "
+    elif len(func.children) == 4:
+        type = func.children[0]
+        name = func.children[1]
+        vars = pp_variables(func.children[2])
+        bloc = pp_bloc(func.children[3])
+        return f"{type} {name} ({vars}){{\n{bloc}\n}} "
 
 def pp_prog(prog):
     s = ""
@@ -133,16 +150,30 @@ def pp_prog(prog):
                 raise Exception("Not implemented")
     return s
 
+
 def var_list(ast):
     if isinstance(ast, lark.Token):
         return set()
     elif ast.data == "var":
-            return {ast}
+        return {ast}
 
     s = set()
     for c in ast.children:
         s.update(var_list(c))
     return s
+
+
+def string_list(ast):
+    if isinstance(ast, lark.Token):
+        return set()
+    elif ast.data == "string":
+        return {ast}
+
+    s = set()
+    for c in ast.children:
+        s.update(string_list(c))
+    return s
+
 
 def type_expr(expr, typelist):
     if expr.data == "variable":
@@ -151,6 +182,8 @@ def type_expr(expr, typelist):
             return typelist[e]
         else:
             raise Exception(f"{e} not declared")
+    if expr.data == "len":
+        return "int"
     elif expr.data == "nombre":
         return "int"
     elif expr.data == "binexpr":
@@ -158,12 +191,17 @@ def type_expr(expr, typelist):
         e2 = type_expr(expr.children[2], typelist)
         if e1 != e2:
             raise Exception("Type error")
+        elif expr.children[1] in {"==", "!=", '<', '>', "<=", ">="}:
+            return "int"
         else:
             return e1
     elif expr.data in {"parenexpr", "not"}:
         return type_expr(expr.children[0], typelist)
+    elif expr.data == "string":
+        return "string"
     else:
         raise Exception("Not implemented")
+
 
 def compile_expr(expr, typelist):
     if expr.data == "variable":
@@ -185,7 +223,7 @@ def compile_expr(expr, typelist):
                     return f"  mov rdx, 0\n{e2}\npush rax\n{e1}\n  pop rbx\n  {intop2asm[op]} qword rbx"
                 elif op == "**":
                     return f"{e1}\n  push rax\n{e2}\n  mov rbx, rax\n  pop rcx\n  mov rdx, 0\n  mov rax, 1\nbegin{index}:\n  cmp rbx, 0\n  je end{index}\n  jl mid{index}\n  imul rax, rcx\n  sub rbx, 1\n  jmp begin{index}\nmid{index}:\n  idiv rcx\n  add rbx, 1\n  jmp begin{index}\nend{index}:"
-                elif op in {'+','-','*','/'}:
+                elif op in {'+', '-', '*', '/'}:
                     return f"{e2}\n  push rax\n{e1}\n  pop rbx\n  {intop2asm[op]} rax, rbx"
                 elif op in {"==", "!=", '<', '>', "<=", ">="}:
                     return f"{e2}\n  push rax\n{e1}\n  pop rbx\n  cmp rax, rbx\n  {cmpop2asm[op]} mid{index}\n  mov rax, 0\n  jmp end{index}\nmid{index}:\n  mov rax, 1\nend{index}:"
@@ -195,16 +233,36 @@ def compile_expr(expr, typelist):
                     return f"{e1}\n  cmp rax, 0\n  jne mid{index}\n{e2}\n  cmp rax, 0\n  jne mid{index}\n  mov rax, 0\n  jmp end{index}\nmid{index}:\n  mov rax, 1\n  end{index}:"
                 else:
                     raise Exception("Not implemented")
+            elif t1 == "string":
+                e1 = compile_expr(expr.children[0], typelist)
+                e2 = compile_expr(expr.children[2], typelist)
+                op = expr.children[1].value
+                index = cpt.__next__()
+                if op in {"=="}:
+                    return f"{e2}\n  push rax\n{e1}\n  pop rbx\n  cmp rax, rbx\n  {cmpop2asm[op]} mid{index}\n  mov rax, 0\n  jmp end{index}\nmid{index}:\n  mov rax, 1\nend{index}:"
+                elif op in {'+'}:
+                    return f"{e2}\n  push rax\n{e1}\n  pop rbx\n  {intop2asm[op]} rax, rbx"
+                else:
+                    raise Exception("Not implemented")
             else:
                 raise Exception("Not implemented")
     elif expr.data == "parenexpr":
         return compile_expr(expr.children[0], typelist)
-    elif expr.data =="not":
+    elif expr.data == "not":
         e = compile_expr(expr.children[0], typelist)
         index = cpt.__next__()
         return f"{e}\n  cmp rax, 0\n  je mid{index}\n  mov rax, 0\n  jmp end{index}\nmid{index}:\n  mov rax, 1\nend{index}:"
+    elif expr.data == "string":
+        return f"  mov rax, const_{expr.children[0][1:(len(expr.children[0])-1)]}"
+    elif expr.data == "len":
+        if type_expr(expr.children[0], typelist) == "string":
+            print(expr.children[0])
+            return f" mov rax,const_{expr.children[0][1:(len(expr.children[0])-1)]}_len "
+        else:
+            raise Exception("Not implemented")
     else:
         raise Exception("Not implemented")
+
 
 def compile_short(cmd, typelist):
     if cmd.data == "assignment":
@@ -224,7 +282,7 @@ def compile_short(cmd, typelist):
     elif cmd.data == "shortdeclaration":
         lhs = cmd.children[0].children[1].value
         if typelist[lhs] == "int":
-            return f"  mov [{lhs}], dword ptr 0"
+            return f"  mov [{lhs}], DWORD 0"
         else:
             raise Exception("Not implemented")
     elif cmd.data == "add":
@@ -245,7 +303,7 @@ def compile_short(cmd, typelist):
                 return f"  mov rbx, [{lhs}]\n{rhs}\n  sub rbx, rax\n  mov [{lhs}], rbx"
             else:
                 raise Exception("Not implemented")
-        else: 
+        else:
             raise Exception("Type error")
     elif cmd.data == "incr":
         lhs = cmd.children[0].value
@@ -261,6 +319,7 @@ def compile_short(cmd, typelist):
             raise Exception("Not implemented")
     else:
         raise Exception("Not implemented")
+
 
 def compile_cmd(cmd, typelist):
     if cmd.data == "short":
@@ -298,23 +357,29 @@ def compile_cmd(cmd, typelist):
     elif cmd.data == "comment":
         return ""
     elif cmd.data == "printf":
-        return f"{compile_expr(cmd.children[0], typelist)}\n  mov rdi, fmt\n  mov rsi, rax\n  xor rax, rax\n  call printf"
+        if type_expr(cmd.children[0], typelist) == "int":
+            return f"{compile_expr(cmd.children[0], typelist)}\n  mov rdi, fmt_int\n  mov rsi, rax\n  xor rax, rax\n  call printf"
+        if type_expr(cmd.children[0], typelist) == "string":
+            return f"{compile_expr(cmd.children[0], typelist)}\n  mov rdi, fmt_str\n  mov rsi, rax\n  xor rax, rax\n  call printf"
     else:
         raise Exception("Not implemented")
+
 
 def compile_bloc(bloc, typelist):
     b = [compile_cmd(t, typelist) for t in bloc.children]
     a = []
     for l in b:
         if len(l) > 0:
-            a += [l] 
+            a += [l]
     return "\n".join(a)
+
 
 def compile_vars(ast):
     s = ""
     for i in range(len(ast.children)):
-        s+= f"  mov rbx, [rbp-0x10]\n  mov rdi, [rbx+{8*(i+1)}]\n  call atoi\n  mov [{ast.children[i].children[1].value}], rax\n"
+        s+= f" mov rbx, [rbp-0x10]\n mov rdi, [rbx+{8*(i+1)}]\n call atoi\n mov [{ast.children[i].children[1].value}], rax\n"
     return s
+
 
 def type_list(varlist):
     dico = {}
@@ -322,28 +387,53 @@ def type_list(varlist):
         dico[e.children[1].value] = e.children[0].value
     return dico
 
+
+def var_decl(varlist, stringlist):
+    s = ""
+    for x in varlist:
+        if x.children[0] == "int":
+            s += f"{x.children[1]}: dq 0\n"
+        if x.children[0] == "string":
+            s += f"{x.children[1]}: dq 0\n{x.children[1]}_len: dq 0\n"
+    for x in stringlist:
+        s += f"const_{x.children[0][1:(len(x.children[0])-1)]}: db {x.children[0]},0 \nconst_{x.children[0][1:(len(x.children[0])-1)]}_len: dq {len(x.children[0])-2} \n"
+    return s
+
+def find_main(prg):
+    func = []
+    for t in prg.children:
+        if not isinstance(t, lark.Token):
+            if t.data == "func":
+                name = t.children[1]
+                if name == "main":
+                    main = t
+                else:
+                    func += [t]
+    return [main, func]
+
 def compile(prg):
     with open("moule.asm") as f:
-        main = prg.children[len(prg.children) - 1]
+        [main, func] = find_main(prg)
         code = f.read()
         varlist = var_list(main)
+        stringlist = string_list(main)
         typelist = type_list(varlist)
-        var_decl =  "\n".join([f"{x.children[1]}: dq 0" for x in varlist])
-        code = code.replace("VAR_DECL", var_decl)
+        code = code.replace("VAR_DECL", var_decl(varlist, stringlist))
         code = code.replace("RETURN", compile_expr(main.children[4], typelist))
         code = code.replace("BODY", compile_bloc(main.children[3], typelist))
         code = code.replace("VAR_INIT", compile_vars(main.children[2]))
         return code
 
-mode = sys.argv[1]
-filename = sys.argv[2]
-code = open(filename).read()
-prg = grammaire.parse(code)
 
-if mode == "pp":
-    print(pp_prog(prg))
-elif mode == "cp":
-    print(compile(prg))
+if len(sys.argv) == 1:
+    args = ["", "pp", "test.nanoc"]
+else:
+    args = sys.argv
+
+if args[1] == "pp":
+    print(pp_prog(grammaire.parse(open(args[2]).read())))
+elif args[1] == "cp":
+    print(compile(grammaire.parse(open(args[2]).read())))
 else:
     raise Exception("Not implemented")
 

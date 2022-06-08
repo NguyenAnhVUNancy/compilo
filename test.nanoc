@@ -2,7 +2,14 @@ int plus(int a, int b) {
     return   (a + b);
 }
 
-void main(int X) {
+/*
+void main2(string X){
+    printf(len(X));
+    return(0);
+}*/
+
+void main2(int X) {
+    printf(X);
     int Y;
     Y += 10;
     /*
@@ -18,5 +25,11 @@ void main(int X) {
     /*
     printf(Y);
     */
+    return(X);
+}
+
+int main(){
+    string X = "qsdqsdqsd";
+    printf(X);
     return(0);
 }
