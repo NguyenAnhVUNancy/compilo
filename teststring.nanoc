@@ -1,4 +1,4 @@
-void main() {
+int main() {
     string X = "1234";
     printf(X);
     printf(len(X));
