@@ -499,15 +499,22 @@ def var_decl(varlist, stringlist):
 
 def find_main(prg):  # This function will find the function named "main" in the nanoc program
     func = []
+    main = None
     for t in prg.children:
         if not isinstance(t, lark.Token):
             if t.data == "func":
                 name = t.children[1]
                 if name == "main":
-                    main = t
+                    if main != None:
+                        raise Exception("Two main functions")
+                    else:
+                        main = t
                 else:
                     func += [t]
-    return [main, func]
+    if main == None:
+        raise Exception("No main function")
+    else:
+        return [main, func]
 
 
 def compile(prg):  # This function will compile the nanoc program into an assembly file
