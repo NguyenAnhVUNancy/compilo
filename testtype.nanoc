@@ -1,0 +1,5 @@
+void main() {
+    string X = "1234";
+    int Y = X;
+    return(0);
+}
