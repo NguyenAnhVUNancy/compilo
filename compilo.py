@@ -258,19 +258,12 @@ def compile_expr(expr, typelist):
         return f"  mov rax, const_{expr.children[0][1:(len(expr.children[0])-1)]}"
     elif expr.data == "len":
         if type_expr(expr.children[0], typelist) == "string":
-<<<<<<< HEAD
-            print(expr.children[0])
-            return f" mov rax,const_{expr.children[0][1:(len(expr.children[0])-1)]}_len "
-        else:
-            raise Exception("Not implemented")
-=======
             if (expr.children[0].data == "variable"):
                 return f"  mov rax, [{expr.children[0].children[0].value}_len]"
             elif (expr.children[0].data == "string"):
                 return f"  mov rax, const_{expr.children[0].children[0].value[1:(len(expr.children[0].children[0].value)-1)]}_len"
             else:
                 raise Exception("Not implemented")
->>>>>>> e39ed14ba0a6a4a5a1544628c09acea91111bdfe
     else:
         raise Exception("Not implemented")
 
@@ -442,19 +435,10 @@ def compile(prg):
         return code
 
 
-<<<<<<< HEAD
 if len(sys.argv) == 1:
     args = ["", "pp", "test.nanoc"]
 else:
     args = sys.argv
-=======
-code = open("test.sc").read()
-prg = grammaire.parse(code)
-#print(pp_prog(prg))
-#print(var_list(prg))
-print(compile(prg))
-#compile(prg)
->>>>>>> e39ed14ba0a6a4a5a1544628c09acea91111bdfe
 
 if args[1] == "pp":
     print(pp_prog(grammaire.parse(open(args[2]).read())))
