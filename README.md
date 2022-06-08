@@ -8,6 +8,9 @@
 ##  Main Implemented functionalities 
 - function
   - there can be multiple functions in a program
+  - function can be called inside the main program
+  - function can be called inside other function
+  - string cannot be called as argument in function
 - string
   - string can be defined 
   - string can be compared
@@ -16,7 +19,7 @@
 - typage
   - types are static for any element
   - two types for variables : string and int
-  - an additional type for function : void
+  - function are also supposed to have one of the two types
 
 ## Implemented functionalities
 - data structures:
