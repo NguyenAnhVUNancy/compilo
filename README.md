@@ -49,7 +49,7 @@
 ##  How to test features ?
 - there is a test file that test all the features : test.nanoc
 - to pretty print a nanoc file : python3 compilo.py pp test.nanoc
-- to compile a nanoc file : python3 compilo.py compile test.nanoc > hum.asm
+- to compile a nanoc file : python3 compilo.py cp test.nanoc > hum.asm
 - nasm -felf64 hum.asm
 - gcc -no-pie -fno-pie hum.o
 - ./a.out
