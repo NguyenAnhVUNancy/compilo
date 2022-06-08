@@ -1,9 +1,9 @@
 int plus(int a, int b) {
-    return   (a + b);
+    return   (add(a,b));
 }
 
-int fois(int a, int b){
-    return (a * b);
+int add(int a, int b){
+    return (a +b);
 }
 
 /*
@@ -12,7 +12,7 @@ void truc(string X){
     return(0);
 }*/
 
-void main(int X) {
+int main(int X) {
     printf(X);
     int Y;
     Y = plus(Y, 10);

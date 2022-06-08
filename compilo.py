@@ -17,7 +17,7 @@ shortcmd : var "=" expr -> declaration | var -> shortdeclaration
     | IDENTIFIANT "=" expr -> assignment | IDENTIFIANT "+=" expr -> add | IDENTIFIANT "-=" expr -> sub
     | IDENTIFIANT "++" -> incr | IDENTIFIANT "--" -> decr
 bloc : (cmd)*
-func : RETURNTYPE NOM variables "{" bloc ("return" "(" expr ")" ";")? "}"
+func : TYPE NOM variables "{" bloc "return" "(" expr ")" ";" "}"
 prog : (func | COMMENT)* func COMMENT*
 var : TYPE IDENTIFIANT
 COMMENT : "//" LINE | "/*" MULTILINE "*/"
@@ -26,7 +26,6 @@ STRING : /"([^"]*)"/
 OP : /[+\*\/><-]/ | /[!<>=](=)/ | "**" | "&&" | "||"
 IDENTIFIANT : /[a-zA-Z][a-zA-Z0-9]*/
 TYPE : "int" | "string"
-RETURNTYPE : TYPE | "void"
 LINE : /.*/
 MULTILINE : /[^\*]*((\*)+[^\/\*][^\*]*)*/s
 NOM : /[a-zA-Z0-9\_]+/
@@ -427,6 +426,10 @@ def compile_func(func,func_type):
     for f in func_type.keys():
         typelist[f] = func_type[f]
     args = func.children[2].children
+    ret = func.children[0].value
+    returntype = type_expr(func.children[4], typelist)
+    if returntype != ret:
+        raise Exception(f"Wrong return type, expected {func.children[0].value}, {returntype} given")
     with open("moule_func.asm") as f:
         code = f.read()
         code = code.replace("NAME", func.children[1])
